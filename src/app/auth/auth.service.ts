@@ -4,6 +4,7 @@ import { Injectable } from '@angular/core';
   providedIn: 'root'
 })
 export class AuthService {
+  // tslint:disable-next-line: variable-name
   private _userIsAuthenticated = false;
 
   get userIsAuthenticated() {
