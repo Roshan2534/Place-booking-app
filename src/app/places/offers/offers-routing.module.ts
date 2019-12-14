@@ -1,6 +1,6 @@
 import { NgModule } from '@angular/core';
 import { Routes, RouterModule } from '@angular/router';
-
+import { OfferItemComponent } from './offer-item/offer-item.component';
 import { OffersPage } from './offers.page';
 
 const routes: Routes = [
@@ -19,6 +19,10 @@ const routes: Routes = [
   {
     path: ':placeId',
     loadChildren: () => import('./offer-bookings/offer-bookings.module').then( m => m.OfferBookingsPageModule)
+  },
+  {
+    path: 'offer-item',
+    loadChildren: () => import('./offer-item/offer-item.component')
   }
 ];
 

@@ -3,6 +3,7 @@ import { Place } from '../place.model';
 import { PlacesService } from '../places.service';
 import { IonItemSliding } from '@ionic/angular';
 import { Router } from '@angular/router';
+import { OfferItemComponent } from './offer-item/offer-item.component';
 
 @Component({
   selector: 'app-offers',
