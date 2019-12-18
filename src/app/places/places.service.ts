@@ -1,59 +1,105 @@
 import { Injectable } from '@angular/core';
 import { Place } from './place.model';
 import { AuthService } from '../auth/auth.service';
-import { BehaviorSubject } from 'rxjs';
-import { take, map, tap, delay } from 'rxjs/operators';
+import { BehaviorSubject, of } from 'rxjs';
+import { take, map, tap, delay, switchMap } from 'rxjs/operators';
+import { HttpClient } from '@angular/common/http';
 
+interface placeData {
+  ImageUrl: string;
+  availableFrom: string;
+  availableTo: string;
+  description: string;
+  price: number;
+  title: string;
+  userId: string;
+}
 
 @Injectable({
   providedIn: 'root'
 })
 export class PlacesService {
   // tslint:disable-next-line: variable-name
-  private _places = new BehaviorSubject<Place[]>([
-    // tslint:disable-next-line: max-line-length
-    new Place('p1', 'Manhattan Mansion', 'In the heart of New York City', 'https://imgs.6sqft.com/wp-content/uploads/2014/06/21042533/Carnegie-Mansion-nyc.jpg', 149.99, new Date('2019-01-01'), new Date('2019-12-31'), 'abc'),
-    // tslint:disable-next-line: max-line-length
-    new Place('p2', 'L\'Amour Toujours', 'A tourist place in paris', 'https://www.discoverwalks.com/blog/wp-content/uploads/2015/07/paris-at-night-big.jpg', 189.99, new Date('2019-01-01'), new Date('2019-12-31'), 'abc'),
-    // tslint:disable-next-line: max-line-length
-    new Place('p3', 'The Foggy Palace', 'Not your average city trip!',
-              // tslint:disable-next-line: max-line-length
-              'https://images.squarespace-cdn.com/content/v1/5a2537ab1f318dcca23b2a9a/1553072598968-EMRLUY4UVJJXSYH1HVTY/ke17ZwdGBToddI8pDm48kLS5BcfP_ie9JnHe-YTegBMUqsxRUqqbr1mOJYKfIPR7LoDQ9mXPOjoJoqy81S2I8N_N4V1vUb5AoIIIbLZhVYy7Mythp_T-mtop-vrsUOmeInPi9iDjx9w8K4ZfjXt2dpfpxA3nkZv9VcDdtvE3KElcvuVhHM0TaJxLlL997ZSUm7cT0R_dexc_UL_zbpz6JQ/Bourscheid+Castle+in+the+fog+-+Chateau+de+Bourscheid+-+Luxembourg+-+Bourscheid+castle+in+the+fog+during+an+autumn+sunrise+-+Castle+Adrift+in+the+Valley+of+Fog+-+Photography+by+Christophe+Van+Biesen+-+Landscape+and+Travel+Photographer.jpg?format=1500w',
-               120.99, new Date('2019-01-01'), new Date('2019-12-31'), 'abc')
-  ]);
+  private _places = new BehaviorSubject<Place[]>([]);
 
-  constructor(private authService: AuthService) { }
+  constructor(private authService: AuthService, private http: HttpClient) { }
 
   get places() {
     return this._places.asObservable();
   }
 
-  getPlace(id: string) {
-    return this.places.pipe(take(1), map(places => {
-      return {...places.find(p => p.id === id)};
+  fetchPlaces() {
+    return this.http.get<{[key: string]: placeData}>('https://ionic-project-5109e.firebaseio.com/offered-places.json').pipe(map(resData => {
+    const places = [];
+    for (const key in resData) {
+      if (resData.hasOwnProperty(key)) {
+        places.push(new Place(key, resData[key].title,
+                    resData[key].description, resData[key].ImageUrl, resData[key].price,
+                    new Date(resData[key].availableFrom), new Date(resData[key].availableTo), resData[key].userId));
+      }
+    }
+    return places;
+    }), tap(places => {
+      this._places.next(places);
     }));
   }
 
+  getPlace(id: string) {
+    return this.http.get<placeData>(`https://ionic-project-5109e.firebaseio.com/offered-places/${id}.json`).pipe(
+      map(placeData => {
+        // tslint:disable-next-line: max-line-length
+        return new  Place(id, placeData.title, placeData.description, placeData.ImageUrl, 
+          placeData.price, new Date(placeData.availableFrom), new Date(placeData.availableTo), placeData.userId);
+      })
+    );
+  }
+
   addPlace(title: string , discription: string, price: number, dateFrom: Date, dateTo: Date ) {
+    let generatedId: string;
     // tslint:disable-next-line: max-line-length
     const newPlace = new Place(Math.random().toString(),
                      title, discription,
                      'https://imgs.6sqft.com/wp-content/uploads/2014/06/21042533/Carnegie-Mansion-nyc.jpg' ,
                      price, dateFrom, dateTo, this.authService.userId );
-    return this.places.pipe(take(1), delay(1000) , tap(places => {
+    return this.http.post<{name: string}>('https://ionic-project-5109e.firebaseio.com/offered-places.json', {...newPlace, id: null}).pipe(
+      switchMap(resData => {
+        generatedId = resData.name;
+        return this.places;
+      }),
+      take(1),
+      tap(places => {
+        newPlace.id = generatedId;
         this._places.next(places.concat(newPlace));
-    }));
+        })
+    );
+    // return this.places.pipe(take(1), delay(1000) , tap(places => {
+    //     this._places.next(places.concat(newPlace));
+    // }));
   }
 
   updatePlace(placeId: string, title: string, discription: string) {
-    return this.places.pipe(take(1), delay(1000) , tap(places => {
+    let updatedPlaces: Place[];
+    return this.places.pipe(take(1), switchMap(places => {
+      if (!places || places.length <= 0) {
+        return this.fetchPlaces();
+      } else {
+        return of(places);
+      }
+    }),
+    switchMap(places => {
       const updatedPlaceIndex = places.findIndex(pl => pl.id === placeId );
-      const updatedPlaces = [...places];
+      updatedPlaces = [...places];
       const oldPlace = updatedPlaces[updatedPlaceIndex];
       // tslint:disable-next-line: max-line-length
       updatedPlaces[updatedPlaceIndex] = new Place(oldPlace.id, title, discription, oldPlace.ImageUrl, oldPlace.price, oldPlace.availableFrom, oldPlace.availableTo, oldPlace.userId);
+      return this.http.put(`https://ionic-project-5109e.firebaseio.com/offered-places/${placeId}.json`,
+      { ...updatedPlaces[updatedPlaceIndex], id: null}
+      );
+    }),
+    tap(() => {
       this._places.next(updatedPlaces);
-    }));
+    })
+    );
   }
 
 }
