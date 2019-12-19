@@ -4,6 +4,7 @@ import { AuthService } from '../auth/auth.service';
 import { BehaviorSubject, of } from 'rxjs';
 import { take, map, tap, delay, switchMap } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
+import { PlaceLocation } from './location.model';
 
 interface placeData {
   ImageUrl: string;
@@ -13,6 +14,7 @@ interface placeData {
   price: number;
   title: string;
   userId: string;
+  location: PlaceLocation;
 }
 
 @Injectable({
@@ -35,7 +37,7 @@ export class PlacesService {
       if (resData.hasOwnProperty(key)) {
         places.push(new Place(key, resData[key].title,
                     resData[key].description, resData[key].ImageUrl, resData[key].price,
-                    new Date(resData[key].availableFrom), new Date(resData[key].availableTo), resData[key].userId));
+                    new Date(resData[key].availableFrom), new Date(resData[key].availableTo), resData[key].userId, resData[key].location));
       }
     }
     return places;
@@ -49,18 +51,19 @@ export class PlacesService {
       map(placeData => {
         // tslint:disable-next-line: max-line-length
         return new  Place(id, placeData.title, placeData.description, placeData.ImageUrl, 
-          placeData.price, new Date(placeData.availableFrom), new Date(placeData.availableTo), placeData.userId);
+          placeData.price, new Date(placeData.availableFrom), new Date(placeData.availableTo), placeData.userId, placeData.location);
       })
     );
   }
 
-  addPlace(title: string , discription: string, price: number, dateFrom: Date, dateTo: Date ) {
+  addPlace(title: string , discription: string, price: number, dateFrom: Date, dateTo: Date,
+           location: PlaceLocation) {
     let generatedId: string;
     // tslint:disable-next-line: max-line-length
     const newPlace = new Place(Math.random().toString(),
                      title, discription,
                      'https://imgs.6sqft.com/wp-content/uploads/2014/06/21042533/Carnegie-Mansion-nyc.jpg' ,
-                     price, dateFrom, dateTo, this.authService.userId );
+                     price, dateFrom, dateTo, this.authService.userId, location );
     return this.http.post<{name: string}>('https://ionic-project-5109e.firebaseio.com/offered-places.json', {...newPlace, id: null}).pipe(
       switchMap(resData => {
         generatedId = resData.name;
@@ -91,7 +94,7 @@ export class PlacesService {
       updatedPlaces = [...places];
       const oldPlace = updatedPlaces[updatedPlaceIndex];
       // tslint:disable-next-line: max-line-length
-      updatedPlaces[updatedPlaceIndex] = new Place(oldPlace.id, title, discription, oldPlace.ImageUrl, oldPlace.price, oldPlace.availableFrom, oldPlace.availableTo, oldPlace.userId);
+      updatedPlaces[updatedPlaceIndex] = new Place(oldPlace.id, title, discription, oldPlace.ImageUrl, oldPlace.price, oldPlace.availableFrom, oldPlace.availableTo, oldPlace.userId, oldPlace.location);
       return this.http.put(`https://ionic-project-5109e.firebaseio.com/offered-places/${placeId}.json`,
       { ...updatedPlaces[updatedPlaceIndex], id: null}
       );
